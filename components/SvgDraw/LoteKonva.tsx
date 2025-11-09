@@ -52,19 +52,29 @@ export default function LoteKonva(): JSX.Element {
   const [dimLines, setDimLines] = useState<any[]>([]);
   const [offsetLines, setOffsetLines] = useState<number[][]>([]);
   const [area, setArea] = useState<number>(0);
-  const [areaText, setAreaText] = useState<{ x: number; y: number; rotation: number }>({
+  const [areaText, setAreaText] = useState<{
+    x: number;
+    y: number;
+    rotation: number;
+  }>({
     x: 0,
     y: 0,
     rotation: 0,
   });
 
   // estados auxiliares para conversões
-  const [centerXY, setCenterXY] = useState<{ cx: number; cy: number }>({ cx: 0, cy: 0 });
+  const [centerXY, setCenterXY] = useState<{ cx: number; cy: number }>({
+    cx: 0,
+    cy: 0,
+  });
   const [scaleFit, setScaleFit] = useState<number>(1);
 
   const stageRef = useRef<any>(null);
   const [scale, setScale] = useState<number>(1);
-  const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [position, setPosition] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
 
   const canvasWidth = 1500;
   const canvasHeight = 900;
@@ -108,7 +118,10 @@ export default function LoteKonva(): JSX.Element {
         const margin = 0.1;
         const availableWidth = canvasWidth * (1 - margin * 2);
         const availableHeight = canvasHeight * (1 - margin * 2);
-        const scaleFitCalc = Math.min(availableWidth / widthM, availableHeight / heightM);
+        const scaleFitCalc = Math.min(
+          availableWidth / widthM,
+          availableHeight / heightM
+        );
         setScaleFit(scaleFitCalc);
 
         const cx = (minX + maxX) / 2;
@@ -429,12 +442,20 @@ export default function LoteKonva(): JSX.Element {
             >
               5 m
             </div>
-            <div style={{ position: "absolute", right: -2, bottom: -18 }}>10 m</div>
+            <div style={{ position: "absolute", right: -2, bottom: -18 }}>
+              10 m
+            </div>
           </div>
         </div>
 
-        {loading && <div className="text-center mt-6 text-muted-foreground">Carregando lote…</div>}
-        {error && <div className="text-center mt-6 text-destructive">{error}</div>}
+        {loading && (
+          <div className="text-center mt-6 text-muted-foreground">
+            Carregando lote…
+          </div>
+        )}
+        {error && (
+          <div className="text-center mt-6 text-destructive">{error}</div>
+        )}
 
         {!loading && !error && polygonPoints.length > 0 && (
           <Stage
@@ -451,11 +472,23 @@ export default function LoteKonva(): JSX.Element {
           >
             <Layer>
               {/* Polígono */}
-              <Line points={polygonPoints} closed stroke="black" strokeWidth={2} fill="#f3f3f3" />
+              <Line
+                points={polygonPoints}
+                closed
+                stroke="black"
+                strokeWidth={2}
+                fill="#f3f3f3"
+              />
 
               {/* Linhas de offset (duplicadas) */}
               {offsetLines.map((pts, i) => (
-                <Line key={i} points={pts} stroke="red" strokeWidth={0.5} dash={[5, 5]} />
+                <Line
+                  key={i}
+                  points={pts}
+                  stroke="red"
+                  strokeWidth={0.5}
+                  dash={[5, 5]}
+                />
               ))}
 
               {/* Cotas com círculos nas extremidades (marrom) */}

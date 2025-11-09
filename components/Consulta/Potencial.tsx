@@ -196,6 +196,17 @@ export default function Potencial() {
               fillOpacity: 0.1,
             },
           });
+// =================================================================== Lotes
+          const equip = L.esri.featureLayer({
+            url: "https://services1.arcgis.com/qt2ibysVPDOaunvY/arcgis/rest/services/CAPS_SIRGAS/FeatureServer/0",
+          simplifyFactor: 0.5,
+            precision: 5,
+            style: {
+              color: "#3388ff",
+              weight: 1.5,
+              fillOpacity: 0.1,
+            },
+          });
 
           m.on("zoomend", () => {
             if (m.getZoom() >= 18) {
@@ -267,6 +278,7 @@ export default function Potencial() {
           const overlayMaps = {
             "Base Cartográfica": baseCartograficaLayer,
             "Mapa Cadastral": cadastralLayer,
+            "quip": equip,
           };
 
           L.control.layers(baseMaps, overlayMaps, { position: "topright" }).addTo(m);
