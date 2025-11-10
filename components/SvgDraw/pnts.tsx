@@ -9,7 +9,9 @@ export default function SvgLines() {
   const [dragging, setDragging] = useState(false);
 
   // alvo do drag
-  const [dragTarget, setDragTarget] = useState<null | "A" | "B" | "C1" | "H1">(null);
+  const [dragTarget, setDragTarget] = useState<null | "A" | "B" | "C1" | "H1">(
+    null
+  );
 
   // estados móveis
   const [A, setA] = useState({ x: 100, y: 500 });
@@ -36,7 +38,8 @@ export default function SvgLines() {
   const H2 = { x: A.x + t * (H1.x - A.x), y: A.y + t * (H1.y - A.y) };
   const C3 = { x: C1.x + t * (B.x - C1.x), y: C1.y + t * (B.y - C1.y) };
   const H3 = { x: H1.x + t * (B.x - H1.x), y: H1.y + t * (B.y - H1.y) };
-
+  const Hmid1 = { x: C1.x + t * (H1.x - C1.x), y: C1.y + t * (H1.y - C1.y) };
+  const Cmid1 = { x: C2.x + t * (H2.x - C2.x), y: C2.y + t * (H2.y - C2.y) };
   // ======================================================
   // cálculos dos pontos de interseção
   // ======================================================
@@ -53,11 +56,43 @@ export default function SvgLines() {
       denom;
     return { x, y };
   }
-
+  function projMidB(p1: any, p2: any, p3: any, p4: any) {
+    const denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+    if (denom === 0) return null;
+    const x =
+      ((p1.x * p2.y - p1.y * p2.x) * (p3.x - p4.x) -
+        (p1.x - p2.x) * (p3.x * p4.y - p3.y * p4.x)) /
+      denom;
+    const y =
+      ((p1.x * p2.y - p1.y * p2.x) * (p3.y - p4.y) -
+        (p1.y - p2.y) * (p3.x * p4.y - p3.y * p4.x)) /
+        denom +
+      500;
+    return { x, y };
+  }
+  function projMidT(p1: any, p2: any, p3: any, p4: any) {
+    const denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+    if (denom === 0) return null;
+    const x =
+      ((p1.x * p2.y - p1.y * p2.x) * (p3.x - p4.x) -
+        (p1.x - p2.x) * (p3.x * p4.y - p3.y * p4.x)) /
+      denom;
+    const y =
+      ((p1.x * p2.y - p1.y * p2.x) * (p3.y - p4.y) -
+        (p1.y - p2.y) * (p3.x * p4.y - p3.y * p4.x)) /
+        denom -
+      500;
+    return { x, y };
+  }
   const C4 = getIntersection(C2, B, A, C3);
   const H4 = getIntersection(H2, B, A, H3);
+  const MidF1 = getIntersection(H1, C2, H2, C1);
+  const MidF1Top = projMidT(H1, C2, H2, C1);
+  const MidF1Bot = projMidB(H1, C2, H2, C1);
+  const Ptop = getIntersection(H2, H1, MidF1Top, MidF1Bot);
+  const PBot = getIntersection(C2, C1, MidF1Top, MidF1Bot);
   // ======================================================
-
+//======================================================
   const toSvgPoint = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current!;
     const rect = svg.getBoundingClientRect();
@@ -143,7 +178,7 @@ export default function SvgLines() {
   };
 
   const fmt = (x: number, y: number) => `(${Math.round(x)}, ${Math.round(y)})`;
-const shouldRenderPolygon = H4 && H4.y > A.y;
+  const shouldRenderPolygon = H4 && H4.y > A.y;
   return (
     <div
       style={{
@@ -175,7 +210,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           x2={W}
           y2={horizonY}
           stroke="#fff"
-          strokeWidth={lpw}
+          strokeWidth={0.5}
         />
 
         {/* Conexões principais */}
@@ -187,7 +222,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#ff3333"
           strokeWidth={lpw}
-          strokeDasharray="6 6"
+          strokeDasharray={stkdsh}
         />
         <line
           x1={C1.x}
@@ -207,7 +242,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#5a78e2"
           strokeWidth={lpw}
-          strokeDasharray="6 6"
+          strokeDasharray={stkdsh}
         />
         <line
           x1={H1.x}
@@ -217,7 +252,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#ff3333"
           strokeWidth={lpw}
-          strokeDasharray="6 6"
+          strokeDasharray={stkdsh}
         />
 
         {/* Linha C2–H2 */}
@@ -229,7 +264,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#9dd926"
           strokeWidth={lpw}
-          strokeDasharray="6 6"
+          strokeDasharray={stkdsh}
         />
 
         {/* Linhas C2–B e H2–B */}
@@ -241,7 +276,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#5a78e2"
           strokeWidth={lpw}
-          strokeDasharray="6 6"
+          strokeDasharray={stkdsh}
         />
         <line
           x1={H2.x}
@@ -251,7 +286,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#5a78e2"
           strokeWidth={lpw}
-          strokeDasharray="6 6"
+          strokeDasharray={stkdsh}
         />
 
         {/* Linhas C3 e H3 */}
@@ -263,7 +298,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#9dd926"
           strokeWidth={lpw}
-          strokeDasharray="6 6"
+          strokeDasharray={stkdsh}
         />
         {/* Linhas A e C3 */}
         <line
@@ -274,7 +309,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#ff3333"
           strokeWidth={lpw}
-          strokeDasharray="6 6"
+          strokeDasharray={stkdsh}
         />
         {/* Linhas A e H3 */}
         <line
@@ -285,7 +320,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeOpacity={stkop}
           stroke="#ff3333"
           strokeWidth={lpw}
-          strokeDasharray="5 15"
+          strokeDasharray={stkdsh}
         />
 
         {/* linha entre C4 e H4 */}
@@ -298,7 +333,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
             strokeOpacity={0.1}
             stroke="#9dd926"
             strokeWidth={lpw}
-            strokeDasharray="10 10"
+            strokeDasharray={stkdsh}
           />
         )}
 
@@ -317,25 +352,24 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
           strokeWidth={2}
         />
 
-      
-{H4 && (H4.y > A.y) && (
-  <polygon
-    points={`${H1.x},${H1.y} ${H3.x},${H3.y} ${H4.x},${H4.y} ${H2.x},${H2.y}`}
-    fill="#ffffff"
-    fillOpacity={0.2}
-    stroke="#ffffff"
-    strokeWidth={2}
-  />
-)}
-{C4 && (C4.y < A.y) && (
-  <polygon
-    points={`${C1.x},${C1.y} ${C3.x},${C3.y} ${C4.x},${C4.y} ${C2.x},${C2.y}`}
-    fill="#ffffff"
-    fillOpacity={0.2}
-    stroke="#ffffff"
-    strokeWidth={2}
-  />
-)}
+        {H4 && H4.y > A.y && (
+          <polygon
+            points={`${H1.x},${H1.y} ${H3.x},${H3.y} ${H4.x},${H4.y} ${H2.x},${H2.y}`}
+            fill="#ffffff"
+            fillOpacity={0.2}
+            stroke="#ffffff"
+            strokeWidth={2}
+          />
+        )}
+        {C4 && C4.y < A.y && (
+          <polygon
+            points={`${C1.x},${C1.y} ${C3.x},${C3.y} ${C4.x},${C4.y} ${C2.x},${C2.y}`}
+            fill="#ffffff"
+            fillOpacity={0.2}
+            stroke="#ffffff"
+            strokeWidth={2}
+          />
+        )}
         {/* pontos de interseção */}
         {C4 && (
           <>
@@ -352,6 +386,7 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
         {H4 && (
           <>
             <circle cx={H4.x} cy={H4.y} r={rp} fill="#ff00ff" />
+
             <text x={H4.x + 10} y={H4.y - 30} fill="#ff00ff" fontSize="13px">
               {"H4"}
             </text>
@@ -360,6 +395,59 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
             </text>
           </>
         )}
+        {/* Proj Marcadores de Centro da Face */}
+        <line
+          x1={C2.x}
+          y1={C2.y}
+          x2={H1.x}
+          y2={H1.y}
+          strokeOpacity={stkop}
+          stroke="#fff"
+          strokeWidth={lpw}
+          strokeDasharray="2 8"
+        />
+
+        <line
+          x1={H2.x}
+          y1={H2.y}
+          x2={C1.x}
+          y2={C1.y}
+          strokeOpacity={stkop}
+          stroke="#fff"
+          strokeWidth={lpw}
+          strokeDasharray="2 8"
+        />
+        <line
+          x1={H3.x}
+          y1={H3.y}
+          x2={C1.x}
+          y2={C1.y}
+          strokeOpacity={stkop}
+          stroke="#fff"
+          strokeWidth={lpw}
+          strokeDasharray="2 8"
+        />
+        <line
+          x1={C3.x}
+          y1={C3.y}
+          x2={H1.x}
+          y2={H1.y}
+          strokeOpacity={stkop}
+          stroke="#fff"
+          strokeWidth={lpw}
+          strokeDasharray="2 8"
+        />
+        {/* Proj Marcadores de Centro Horizontal */}
+        <line
+          x1={Hmid1.x}
+          y1={Hmid1.y}
+          x2={Cmid1.x}
+          y2={Cmid1.y}
+          strokeOpacity={stkop}
+          stroke="#fff"
+          strokeWidth={lpw}
+          strokeDasharray="2 8"
+        />
 
         {/* Ponto intermediário entre C1 e B */}
         <circle cx={C3.x} cy={C3.y} r={rp} fill="#00ffff" />
@@ -443,6 +531,57 @@ const shouldRenderPolygon = H4 && H4.y > A.y;
         <text x={H2.x - 15} y={H2.y - 25} fill="#00ffff" fontSize="13px">
           {"H2"}
         </text>
+        {MidF1 && Ptop && PBot && (
+          <>
+            {" "}
+            <circle cx={Hmid1.x} cy={Hmid1.y} r={rp} fill="#00ffff" />
+            <circle cx={Cmid1.x} cy={Cmid1.y} r={rp} fill="#00ffff" />
+            <circle cx={MidF1.x} cy={MidF1.y} r={rp} fill="#00ffff" />
+            <circle cx={Ptop.x} cy={Ptop.y} r={rp} fill="#00ffff" />
+            <circle cx={PBot.x} cy={PBot.y} r={rp} fill="#00ffff" />
+            <line
+              x1={Ptop.x}
+              y1={Ptop.y}
+              x2={PBot.x}
+              y2={PBot.y}
+              stroke="#9dd926"
+              strokeWidth={lpw}
+              strokeDasharray="6 6"
+            />
+            <text
+              x={Hmid1.x - 52}
+              y={Hmid1.y - 10}
+              fill="#00ffff"
+              fontSize="13px"
+            >
+              {"Mid R F1"}
+            </text>
+             <text
+              x={PBot.x - 72}
+              y={PBot.y + 20}
+              fill="#00ffff"
+              fontSize="13px"
+            >
+              {"Mid Bot Face 1"}
+            </text>
+             <text
+              x={Cmid1.x - 62}
+              y={Cmid1.y }
+              fill="#00ffff"
+              fontSize="13px"
+            >
+              {"Mid L F1"}
+            </text>
+            <text
+              x={Ptop.x - 72}
+              y={Ptop.y - 20}
+              fill="#00ffff"
+              fontSize="13px"
+            >
+              {"Mid Top Face 1"}
+            </text>
+          </>
+        )}
       </svg>
     </div>
   );
