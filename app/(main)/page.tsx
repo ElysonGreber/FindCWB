@@ -7,14 +7,15 @@ import Diagram2D from "@/components/sunpaths/Sunpath-Diagram";
 import LoteSVGComCotas from "@/components/Consulta/LoteCotas";
 import LoteValores from "@/components/Consulta/LoteValores";
 import SvgLines from "@/components/SvgDraw/pnts";
-import Quadrantes from "@/components/SvgDraw/conica";
+import Cavalera from "@/components/SvgDraw/cavalera";
+import Quadrantes   from "@/components/SvgDraw/conica";
 import GeoGebraComplete from "@/components/SvgDraw/geometric";
 export default function Home() {
   return (
     <div className="flex flex-col gap-6">
-      <div className="scale-75">
-      <Quadrantes />
-      </div>
+     
+      {/* <Quadrantes /> */}
+     <Cavalera />
       
       <Potencial />
       <PotencialTable />
