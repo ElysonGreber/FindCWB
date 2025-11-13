@@ -10,13 +10,15 @@ import SvgLines from "@/components/SvgDraw/pnts";
 import Cavalera from "@/components/SvgDraw/cavalera";
 import Quadrantes   from "@/components/SvgDraw/conica";
 import GeoGebraComplete from "@/components/SvgDraw/geometric";
+import Divina from "@/components/SvgDraw/aorea";
 export default function Home() {
   return (
     <div className="flex flex-col gap-6">
      
       {/* <Quadrantes /> */}
+      <Divina />
      <Cavalera />
-      
+      <Quadrantes />
       <Potencial />
       <PotencialTable />
       <QuadroZoneamento />
