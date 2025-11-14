@@ -20,7 +20,7 @@ export default function Cavalera() {
   const stkwH = 1.5;
 
   const [points, setPoints] = useState<Pt[]>([]);
-
+const [userLines, setUserLines] = useState<{ A: Pt; B: Pt }[]>([]);
   // Conversão de coordenadas do mouse para o sistema SVG
   const toSvgCoords = (clientX: number, clientY: number): Pt => {
     const svg = svgRef.current!;
@@ -31,10 +31,24 @@ export default function Cavalera() {
   };
 
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    const { clientX, clientY } = e;
-    const p = toSvgCoords(clientX, clientY);
-    setPoints((prev) => [...prev, p]);
-  };
+  const { clientX, clientY } = e;
+  const p = toSvgCoords(clientX, clientY);
+
+  setPoints((prev) => {
+    const newPoints = [...prev, p];
+
+    // Se houver dois pontos, cria uma linha entre eles
+    if (newPoints.length === 2) {
+      setUserLines((prevLines) => [
+        ...prevLines,
+        { A: newPoints[0], B: newPoints[1] },
+      ]);
+      return []; // limpa o buffer para o próximo par de cliques
+    }
+
+    return newPoints;
+  });
+};
 
   function getPLineAtAngle(
     x1: number,
@@ -298,6 +312,18 @@ export default function Cavalera() {
             </text>
           </g>
         ))}
+        {/* 🟢 Linhas criadas pelo usuário */}
+{userLines.map((ln, i) => (
+  <line
+    key={`userline-${i}`}
+    x1={ln.A.x}
+    y1={ln.A.y}
+    x2={ln.B.x}
+    y2={ln.B.y}
+    stroke="cyan"
+    strokeWidth={2}
+  />
+))}
       </svg>
     </div>
   );

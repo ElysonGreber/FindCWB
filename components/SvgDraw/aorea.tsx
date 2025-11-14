@@ -55,6 +55,7 @@ const rApiO = useDistancePoints(pQLB, pAOp);
 
 const pV = {x: pQLB.x, y: pQLB.y- rApiO};
 const pP = {x: pQLB.x+rApiO, y: pQLB.y};
+const pVmid = {x: pQLB.x, y: pQLB.y- (rApiO/2)};
 const pPh = {x: pP.x, y: pV.y};
 const pVB = {x:pQRB.x, y:pV.y};
   const { getIntersection } = useLineIntersection();
@@ -226,6 +227,13 @@ const Arc = useArcByAngle(pP, rApiO, 180, 270,1);
          <circle
           cx={pV.x}
           cy={pV.y}
+          r={3}
+          fill="none"
+          className="fill-red-400"
+        />
+         <circle
+          cx={pVmid.x}
+          cy={pVmid.y}
           r={3}
           fill="none"
           className="fill-red-400"
