@@ -6,7 +6,7 @@ import { useIsoGrid } from "@/hooks/useIsometricGrid";
 type Pt = { x: number; y: number };
 type Path = { id: number; points: Pt[]; color: string };
 
-export function useIGrid(width = 1500, height = 1500, spacing = 80) {
+export function useIGrid(width = 1500, height = 1500, spacing = 40) {
   const grid = useIsoGrid(width, height, spacing);
   return { grid };
 }
@@ -14,7 +14,7 @@ export function useIGrid(width = 1500, height = 1500, spacing = 80) {
 export default function Isometric() {
   const W = 1500;
   const H = 1500;
-  const spacing = 80;
+  const spacing = 40;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const { grid } = useIGrid(W, H, spacing);
