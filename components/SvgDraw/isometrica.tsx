@@ -1,108 +1,80 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useRef, useState } from "react";
 import { useIsoGrid } from "@/hooks/useIsometricGrid";
-
-type Pt = { x: number; y: number };
-type Path = { id: number; points: Pt[]; color: string };
-
-export function useIGrid(width = 1500, height = 1500, spacing = 40) {
-  const grid = useIsoGrid(width, height, spacing);
-  return { grid };
-}
+import { useGridIntersections } from "@/hooks/useGridIntersections";
+import { usePathsManager } from "@/hooks/usePathsManager";
+import { useHotkeys } from "@/hooks/useHotkeys";
+import { IsoGrid } from "@/components/SvgDraw/IsoGrid";
+import { IsoPaths } from "@/components/SvgDraw/IsoPaths";
+import { IsoToolbar } from "@/components/SvgDraw/IsoToolbar";
+import { useLineExtension } from "@/hooks/useLineExtension";
+import { usePolygonManager } from "@/hooks/usePolygonManager";
+import type { Pt } from "@/types";
 
 export default function Isometric() {
   const W = 1500;
   const H = 1500;
-  const spacing = 40;
+  const spacing = 60;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const { grid } = useIGrid(W, H, spacing);
+  const grid = useIsoGrid(W, H, spacing);
+  const intersections = useGridIntersections(grid, W, H);
 
-  const [paths, setPaths] = useState<Path[]>([]);
-  const [activePath, setActivePath] = useState<Path | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string>("cyan");
+  // === POLÍGONOS ===
+  const {
+    polygonMode,
+    setPolygonMode,
+    polygons,
+    activePolygon,
+    fillColor,
+    setFillColor,
+    fillOpacity,
+    setFillOpacity,
+    addPolygonPoint,
+    finalizePolygon,
+    clearPolygons,
+  } = usePolygonManager();
 
-  // === Calcula interseções da grid ===
-  const intersections = useMemo(() => {
-    const pts: Pt[] = [];
-    const seen = new Set<string>();
-    grid.forEach((lnA) => {
-      grid.forEach((lnB) => {
-        const denom =
-          (lnA.A.x - lnA.B.x) * (lnB.A.y - lnB.B.y) -
-          (lnA.A.y - lnA.B.y) * (lnB.A.x - lnB.B.x);
-        if (Math.abs(denom) < 1e-6) return;
-        const px =
-          ((lnA.A.x * lnA.B.y - lnA.A.y * lnA.B.x) * (lnB.A.x - lnB.B.x) -
-            (lnA.A.x - lnA.B.x) *
-              (lnB.A.x * lnB.B.y - lnB.A.y * lnB.B.x)) /
-          denom;
-        const py =
-          ((lnA.A.x * lnA.B.y - lnA.A.y * lnA.B.x) * (lnB.A.y - lnB.B.y) -
-            (lnA.A.y - lnA.B.y) *
-              (lnB.A.x * lnB.B.y - lnB.A.y * lnB.B.x)) /
-          denom;
-        if (px >= 0 && px <= W && py >= 0 && py <= H) {
-          const key = `${Math.round(px)},${Math.round(py)}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            pts.push({ x: px, y: py });
-          }
-        }
-      });
-    });
-    return pts;
-  }, [grid]);
+  // === PATHS (LINHAS) ===
+  const {
+    paths,
+    setPaths,
+    activePath,
+    setActivePath,
+    color,
+    setColor,
+    strokeWidth,
+    setStrokeWidth,
+    dashed,
+    setDashed,
+    colors,
+    pointCount,
+    setPointCount,
+    finalizePath,
+    undoLast,
+    clear,
+    getNextLabel,
+  } = usePathsManager();
 
-  // === Converte clique para coordenadas SVG ===
-  const toSvgCoords = (e: React.MouseEvent<SVGSVGElement>): Pt => {
-    const svg = svgRef.current!;
-    const rect = svg.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * W;
-    const y = ((e.clientY - rect.top) / rect.height) * H;
-    return { x, y };
-  };
+  // === MODO LINHA E POLÍGONO ===
+  const [lineMode, setLineMode] = useState(true);
+  const [polygonInProgress, setPolygonInProgress] = useState(false);
 
-  // === Pega a interseção mais próxima ===
-  const getClosestIntersection = (p: Pt, tolerance = 10): Pt | null => {
-    let closest: Pt | null = null;
-    let minDist = Infinity;
-    intersections.forEach((iPt) => {
-      const d = Math.hypot(iPt.x - p.x, iPt.y - p.y);
-      if (d < minDist && d <= tolerance) {
-        closest = iPt;
-        minDist = d;
-      }
-    });
-    return closest;
-  };
+  // === EXTENSÃO ===
+  const {
+    extendMode,
+    setExtendMode,
+    handleExtendClick,
+    handleHover,
+    extendStart,
+    previewLine,
+    hoveredId,
+    selectedId,
+    phaseMessage,
+  } = useLineExtension(paths, setPaths);
 
-  // === Clicar adiciona ponto ao path ativo ===
-  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    const raw = toSvgCoords(e);
-    const nearest = getClosestIntersection(raw);
-    if (!nearest) return; // só aceita cliques nas interseções
-
-    setActivePath((prev) => {
-      if (!prev) {
-        const newPath: Path = { id: Date.now(), points: [nearest], color: selectedColor };
-        return newPath;
-      } else {
-        return { ...prev, points: [...prev.points, nearest] };
-      }
-    });
-  };
-
-  // === Finaliza path atual ===
-  const finalizePath = () => {
-    if (activePath && activePath.points.length > 1) {
-      setPaths((prev) => [...prev, activePath]);
-      setActivePath(null);
-    }
-  };
-
-  // === Exportar JSON ===
+  // === EXPORTAÇÃO ===
   const exportJSON = () => {
     const data = JSON.stringify(paths, null, 2);
     const blob = new Blob([data], { type: "application/json" });
@@ -113,12 +85,12 @@ export default function Isometric() {
     a.click();
   };
 
-  // === Exportar SVG ===
   const exportSVG = () => {
     const pathElements = paths
       .map((p) => {
-        const d = p.points.map((pt) => `${pt.x},${pt.y}`).join(" ");
-        return `<polyline points="${d}" fill="none" stroke="${p.color}" stroke-width="2"/>`;
+        const d = p.points.map((pt: { x: any; y: any }) => `${pt.x},${pt.y}`).join(" ");
+        const dash = p.dashed ? `stroke-dasharray="6 6"` : "";
+        return `<polyline points="${d}" fill="none" stroke="${p.color}" stroke-width="${p.strokeWidth}" ${dash}/>`;
       })
       .join("\n");
     const svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
@@ -132,131 +104,204 @@ ${pathElements}
     a.click();
   };
 
-  const clearAll = () => {
-    setPaths([]);
-    setActivePath(null);
+  // === HOTKEYS ===
+  useHotkeys({
+    colors,
+    setSelectedColor: setColor,
+    finalizePath,
+    undoLastPath: undoLast,
+    toggleDashed: () => setDashed((d) => !d),
+  });
+
+  // === FUNÇÕES AUXILIARES ===
+  const toSvgCoords = (e: React.MouseEvent<SVGSVGElement>): Pt => {
+    const svg = svgRef.current!;
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * W,
+      y: ((e.clientY - rect.top) / rect.height) * H,
+    };
   };
 
-  // === Cores disponíveis ===
-  const colors = ["cyan", "orange", "magenta", "lime"];
+  const getClosestIntersection = (p: Pt, tolerance = 10): Pt | null => {
+    let closest: Pt | null = null;
+    let minDist = Infinity;
+    intersections.forEach((iPt) => {
+      const d = Math.hypot(iPt.x - p.x, iPt.y - p.y);
+      if (d < minDist && d <= tolerance) {
+        closest = iPt;
+        minDist = d;
+      }
+    });
+    return closest;
+  };
+
+  // === CLICK ===
+  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    const raw = toSvgCoords(e);
+
+    // 🔷 MODO POLÍGONO
+    if (polygonMode) {
+      const nearest = getClosestIntersection(raw);
+      if (!nearest) return;
+      setPolygonInProgress(true);
+      addPolygonPoint(nearest);
+      return;
+    }
+
+    // 🔶 MODO EXTENSÃO
+    if (extendMode) {
+      handleExtendClick(raw);
+      return;
+    }
+
+    // 🔹 MODO LINHA NORMAL
+    const nearest = getClosestIntersection(raw);
+    if (!nearest) return;
+
+    const label = getNextLabel(pointCount);
+    setPointCount((prev) => prev + 1);
+    const labeledPoint = { ...nearest, label };
+
+    setActivePath((prev: any) => {
+      if (!prev) {
+        const newPath = {
+          id: crypto.randomUUID(),
+          points: [labeledPoint],
+          color,
+          strokeWidth,
+          dashed,
+        };
+        return newPath;
+      } else {
+        const updated = { ...prev, points: [...prev.points, labeledPoint] };
+        if (updated.points.length > 1) {
+          setPaths((prevPaths) => [...prevPaths, updated]);
+          return null;
+        }
+        return updated;
+      }
+    });
+  };
+
+  // === FINALIZAR POLÍGONO ===
+  const handleFinalizePolygon = () => {
+    finalizePolygon();
+    setPolygonInProgress(false);
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-900">
-      <div className="mb-4 space-x-3 flex items-center">
-        <button
-          onClick={finalizePath}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
-        >
-          Novo Path
-        </button>
-        <button
-          onClick={clearAll}
-          className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
-        >
-          Limpar Tudo
-        </button>
-        <button
-          onClick={exportJSON}
-          className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700"
-        >
-          Exportar JSON
-        </button>
-        <button
-          onClick={exportSVG}
-          className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded hover:bg-yellow-700"
-        >
-          Exportar SVG
-        </button>
+      {/* === TOOLBAR === */}
+      <IsoToolbar
+        colors={colors}
+        selectedColor={color}
+        setSelectedColor={setColor}
+        strokeWidth={strokeWidth}
+        setStrokeWidth={setStrokeWidth}
+        dashed={dashed}
+        setDashed={setDashed}
+        onFinalize={finalizePath}
+        onUndo={undoLast}
+        onClear={clear}
+        onExportJSON={exportJSON}
+        onExportSVG={exportSVG}
+        polygonMode={polygonMode}
+        setPolygonMode={setPolygonMode}
+        polygonInProgress={polygonInProgress}
+        fillColor={fillColor}
+        setFillColor={setFillColor}
+        fillOpacity={fillOpacity}
+        setFillOpacity={setFillOpacity}
+        onFinalizePolygon={handleFinalizePolygon}
+        lineMode={lineMode}
+        setLineMode={setLineMode}
+      />
 
-        {/* === Seletor de cor === */}
-        <div className="flex items-center space-x-2 ml-6">
-          {colors.map((c) => (
-            <button
-              key={c}
-              onClick={() => setSelectedColor(c)}
-              className={`w-6 h-6 rounded-full border-2 ${
-                selectedColor === c ? "border-white" : "border-gray-600"
-              }`}
-              style={{ backgroundColor: c }}
-              title={`Selecionar ${c}`}
-            />
-          ))}
+      {/* === BOTÃO DE EXTENSÃO === */}
+      <button
+        onClick={() => setExtendMode((p) => !p)}
+        className={`mt-2 px-4 py-2 rounded ${
+          extendMode ? "bg-amber-600" : "bg-gray-700"
+        } text-white`}
+      >
+        {extendMode ? "Modo Extensão Ativo" : "Ativar Modo Extensão"}
+      </button>
+
+      {extendMode && (
+        <div className="fixed bottom-6 right-6 bg-amber-700 text-white px-4 py-2 rounded-lg shadow-lg font-mono text-sm">
+          {phaseMessage}
         </div>
-      </div>
+      )}
 
+      {/* === SVG === */}
       <svg
         ref={svgRef}
         width={W}
         height={H}
         viewBox={`0 0 ${W} ${H}`}
         onClick={handleClick}
+        onMouseMove={(e) => handleHover(toSvgCoords(e))}
         className="cursor-crosshair select-none bg-neutral-900"
       >
-        {/* === Grade Isométrica === */}
-        {grid.map((ln, i) => (
-          <line
-            key={i}
-            x1={ln.A.x}
-            y1={ln.A.y}
-            x2={ln.B.x}
-            y2={ln.B.y}
-            stroke="#333"
-            strokeWidth={0.4}
+        {/* === GRID === */}
+        <IsoGrid grid={grid} />
+
+        {/* === POLÍGONOS EXISTENTES === */}
+        {polygons.map((poly) => (
+          <polygon
+            key={poly.id}
+            points={poly.points.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill={poly.color}
+            fillOpacity={poly.opacity}
+            stroke={poly.color}
+            strokeWidth={1}
           />
         ))}
 
-        {/* === Paths existentes === */}
-        {paths.map((p) => (
-          <g key={p.id}>
-            <polyline
-              points={p.points.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-              fill="none"
-              stroke={p.color}
-              strokeWidth={2}
-            />
-            {p.points.map((pt, i) => (
-              <g key={i}>
-                <circle cx={pt.x} cy={pt.y} r={4} fill={p.color} />
-                <text
-                  x={pt.x + 10}
-                  y={pt.y - 10}
-                  fill={p.color}
-                  fontSize="11"
-                  fontFamily="monospace"
-                >
-                  ({Math.round(pt.x)}, {Math.round(pt.y)})
-                </text>
-              </g>
-            ))}
-          </g>
-        ))}
-
-        {/* === Path ativo === */}
-        {activePath && activePath.points.length > 1 && (
-          <polyline
-            points={activePath.points.map((pt) => `${pt.x},${pt.y}`).join(" ")}
-            fill="none"
-            stroke={activePath.color}
-            strokeWidth={2}
+        {/* === POLÍGONO EM CRIAÇÃO === */}
+        {activePolygon && activePolygon.points.length > 1 && (
+          <polygon
+            points={activePolygon.points.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill={fillColor}
+            fillOpacity={fillOpacity}
+            stroke={fillColor}
+            strokeWidth={1}
+            strokeDasharray="4 2"
           />
         )}
 
-        {/* === Pontos ativos === */}
-        {activePath &&
-          activePath.points.map((p, i) => (
-            <g key={i}>
-              <circle cx={p.x} cy={p.y} r={5} fill={activePath.color} />
-              <text
-                x={p.x + 10}
-                y={p.y - 10}
-                fill={activePath.color}
-                fontSize="12"
-                fontFamily="monospace"
-              >
-                ({Math.round(p.x)}, {Math.round(p.y)})
-              </text>
-            </g>
-          ))}
+        {/* === PATHS EXISTENTES === */}
+        <IsoPaths paths={paths} hoveredId={hoveredId} selectedId={selectedId} />
+
+        {/* === PATH ATIVO === */}
+        {activePath && <IsoPaths paths={[activePath]} />}
+
+        {/* === PRÉVIA DA EXTENSÃO === */}
+        {previewLine && (
+          <line
+            x1={previewLine.A.x}
+            y1={previewLine.A.y}
+            x2={previewLine.B.x}
+            y2={previewLine.B.y}
+            stroke="yellow"
+            strokeWidth={2}
+            strokeDasharray="4 2"
+            opacity={0.8}
+          />
+        )}
+
+        {/* === PONTO INICIAL DA EXTENSÃO === */}
+        {extendStart && (
+          <circle
+            cx={extendStart.point.x}
+            cy={extendStart.point.y}
+            r={6}
+            fill="yellow"
+            stroke="white"
+            strokeWidth={1}
+          />
+        )}
       </svg>
     </div>
   );
