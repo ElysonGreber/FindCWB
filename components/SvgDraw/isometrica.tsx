@@ -11,6 +11,7 @@ import { IsoPaths } from "@/components/SvgDraw/IsoPaths";
 import { IsoToolbar } from "@/components/SvgDraw/IsoToolbar";
 import { useLineExtension } from "@/hooks/useLineExtension";
 import { usePolygonManager } from "@/hooks/usePolygonManager";
+import { useIntersections } from "@/hooks/useIntersections";
 import type { Pt } from "@/types";
 
 export default function Isometric() {
@@ -127,6 +128,23 @@ export default function Isometric() {
     selectedId,
     phaseMessage,
   } = useLineExtension(paths, setPaths);
+const {
+    intersectionMode,
+    setIntersectionMode,
+    selectedElements,
+    toggleElementSelection,
+    detectClickedElement,
+    finalizeIntersections,
+    previewPoints,
+} = useIntersections(
+  paths,
+  circles,
+  ellipses,
+  polygons,
+  addPoint,
+  getNextLabel,
+  setPointCount
+);
 
   // === EXPORTAÇÃO ===
   const exportJSON = () => {
@@ -262,7 +280,13 @@ if (extendMode) {
   handleExtendClick(raw);
   return;
 }
-
+// 🧭 MODO INTERSEÇÃO — Seleciona elementos
+if (intersectionMode) {
+  const clickedId = detectClickedElement(raw);
+  if (!clickedId) return;
+  toggleElementSelection(clickedId);
+  return;
+}
 // 🧲 Busca ponto mais próximo (ponto, extremidade ou interseção)
 const nearest = getNearestSnapPoint(raw);
 if (!nearest) return;
@@ -400,6 +424,11 @@ if (!nearest) return;
         pointMode={pointMode}
         setEllipseMode={setEllipseMode}
         ellipseMode={ellipseMode}
+      intersectionMode={intersectionMode}
+  setIntersectionMode={setIntersectionMode}
+  selectedElements={selectedElements}
+  onFinalizeIntersections={finalizeIntersections}
+  
       />
 
       {/* === DIALOGO DE AJUDA === */}
@@ -583,7 +612,96 @@ if (!nearest) return;
             opacity={0.8}
           />
         )}
-        
+        {/* === LINHAS === */}
+<IsoPaths
+  paths={paths.map((p) => {
+    if (intersectionMode && selectedElements.includes(p.id)) {
+      return {
+        ...p,
+        color: "#FFD700", // destaque amarelo
+        strokeWidth: p.strokeWidth * 1.6,
+      };
+    }
+    return p;
+  })}
+/>
+
+{/* === CÍRCULOS === */}
+{circles.map((c, i) => (
+  <circle
+    key={i}
+    cx={c.center.x}
+    cy={c.center.y}
+    r={c.radius}
+    stroke={
+      intersectionMode && selectedElements.includes(c.id)
+        ? "#FFD700"
+        : c.color
+    }
+    strokeWidth={
+      intersectionMode && selectedElements.includes(c.id)
+        ? c.strokeWidth * 1.6
+        : c.strokeWidth
+    }
+    strokeDasharray={c.dashed ? "5,5" : ""}
+    fill="none"
+  />
+))}
+
+{/* === ELIPSES === */}
+{ellipses.map((e, i) => (
+  <ellipse
+    key={i}
+    cx={e.center.x}
+    cy={e.center.y}
+    rx={e.rx}
+    ry={e.ry}
+    stroke={
+      intersectionMode && selectedElements.includes(e.id)
+        ? "#FFD700"
+        : e.color
+    }
+    strokeWidth={
+      intersectionMode && selectedElements.includes(e.id)
+        ? e.strokeWidth * 1.6
+        : e.strokeWidth
+    }
+    strokeDasharray={e.dashed ? "5,5" : ""}
+    fill="none"
+  />
+))}
+
+{/* === POLÍGONOS === */}
+{polygons.map((poly) => (
+  <polygon
+    key={poly.id}
+    points={poly.points.map((p) => `${p.x},${p.y}`).join(" ")}
+    fill="none"
+    stroke={
+      intersectionMode && selectedElements.includes(poly.id)
+        ? "#FFD700"
+        : poly.color
+    }
+    strokeWidth={
+      intersectionMode && selectedElements.includes(poly.id) ? 2 : 1
+    }
+  />
+))}
+
+{/* === PONTOS DE INTERSEÇÃO (PRÉVIA) === */}
+{previewPoints.map((p, i) => (
+  <circle
+    key={`preview-${i}`}
+    cx={p.x}
+    cy={p.y}
+    r={5}
+    fill="yellow"
+    stroke="black"
+    strokeWidth={1}
+    opacity={0.9}
+  />
+))}
+
       </svg>
     </div>
   );

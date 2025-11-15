@@ -11,7 +11,7 @@ import {
   Circle as CircleIcon,
   RailSymbol,
 } from "lucide-react";
-import { IconOvalVertical, IconPoint } from "@tabler/icons-react";
+import { IconOvalVertical, IconPoint, IconTargetArrow } from "@tabler/icons-react";
 
 export function IsoToolbar({
   colors,
@@ -21,7 +21,6 @@ export function IsoToolbar({
   setStrokeWidth,
   dashed,
   setDashed,
-  // onFinalize,
   onUndo,
   onClear,
   onExportJSON,
@@ -46,8 +45,14 @@ export function IsoToolbar({
   pointMode,
   setEllipseMode,
   ellipseMode,
+
+  // 🔹 Novo: modo interseção
+  intersectionMode,
+  setIntersectionMode,
+  selectedElements,
+  onFinalizeIntersections,
 }: any) {
-  /** ✅ Função que ativa apenas um modo por vez */
+  /** ✅ Ativa apenas um modo por vez */
   const activateMode = (mode: string) => {
     setLineMode(false);
     setPolygonMode(false);
@@ -55,6 +60,7 @@ export function IsoToolbar({
     setExtendMode(false);
     setPointMode(false);
     setEllipseMode(false);
+    setIntersectionMode(false);
 
     switch (mode) {
       case "line":
@@ -75,6 +81,9 @@ export function IsoToolbar({
       case "ellipse":
         setEllipseMode(true);
         break;
+      case "intersection":
+        setIntersectionMode(true);
+        break;
       default:
         break;
     }
@@ -83,14 +92,6 @@ export function IsoToolbar({
   return (
     <div className="mb-4 flex flex-wrap items-center justify-center space-x-4">
       {/* === CONTROLES PRINCIPAIS === */}
-      {/* <button
-        onClick={onFinalize}
-        className="flex items-center space-x-2 px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700"
-      >
-        <Check size={16} />
-        <span>OK</span>
-      </button> */}
-
       <button
         onClick={onUndo}
         className="flex items-center space-x-2 px-4 py-2 text-white bg-gray-600 rounded hover:bg-gray-700"
@@ -232,6 +233,17 @@ export function IsoToolbar({
           <span>Extensão</span>
         </button>
 
+        {/* Interseção */}
+        <button
+          onClick={() => activateMode("intersection")}
+          className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
+            intersectionMode ? "bg-teal-600 text-white" : "bg-gray-600 text-gray-300"
+          } hover:bg-teal-500`}
+        >
+          <IconTargetArrow size={16} />
+          <span>Interseção</span>
+        </button>
+
         {/* Botão finalizar polígono */}
         {polygonMode && (
           <button
@@ -246,6 +258,18 @@ export function IsoToolbar({
             <span>{polygonInProgress ? "Finalizar" : "Concluído"}</span>
           </button>
         )}
+
+        {/* Botão Finalizar Interseções */}
+{intersectionMode && selectedElements.length > 1 && (
+  <button
+    onClick={onFinalizeIntersections}
+    className="flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium bg-emerald-700 text-white hover:bg-emerald-600"
+  >
+    <Check size={16} />
+    <span>Finalizar</span>
+  </button>
+)}
+        
       </div>
 
       {/* === COR DE PREENCHIMENTO === */}
