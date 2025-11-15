@@ -1,3 +1,5 @@
+
+//hooks/usePolygonManager.ts
 import { useState } from "react";
 import type { Pt } from "@/types";
 
@@ -8,17 +10,15 @@ export type Polygon = {
   opacity: number;
 };
 
-export function usePolygonManager() {
+export function usePolygonManager(registerPolygon?: () => void) {
   const [polygons, setPolygons] = useState<Polygon[]>([]);
   const [activePolygon, setActivePolygon] = useState<Polygon | null>(null);
   const [polygonMode, setPolygonMode] = useState(false);
   const [fillColor, setFillColor] = useState("rgba(0, 255, 255, 0.4)");
   const [fillOpacity, setFillOpacity] = useState(0.4);
 
-  // === Adiciona ponto ===
   const addPolygonPoint = (pt: Pt) => {
     if (!polygonMode) return;
-
     setActivePolygon((prev) => {
       if (!prev) {
         const newPoly: Polygon = {
@@ -34,15 +34,14 @@ export function usePolygonManager() {
     });
   };
 
-  // === Finaliza o polígono (Enter) ===
   const finalizePolygon = () => {
     if (activePolygon && activePolygon.points.length > 2) {
       setPolygons((prev) => [...prev, activePolygon]);
       setActivePolygon(null);
+      if (registerPolygon) registerPolygon(); // ✅ registra no histórico global
     }
   };
 
-  // === Limpar tudo ===
   const clearPolygons = () => {
     setPolygons([]);
     setActivePolygon(null);
@@ -50,6 +49,7 @@ export function usePolygonManager() {
 
   return {
     polygonMode,
+    setPolygons,
     setPolygonMode,
     polygons,
     activePolygon,

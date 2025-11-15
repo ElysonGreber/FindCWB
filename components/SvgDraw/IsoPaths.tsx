@@ -1,3 +1,4 @@
+//components/SvgDraw/IsoPaths.tsx
 import type { Path } from "@/types";
 
 export interface IsoPathsProps {

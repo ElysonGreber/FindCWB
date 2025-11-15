@@ -1,3 +1,4 @@
+//components/SvgDraw/isometrica.tsx
 "use client";
 
 import { useRef, useState } from "react";
@@ -20,26 +21,26 @@ export default function Isometric() {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const grid = useIsoGrid(W, H, spacing);
   const intersections = useGridIntersections(grid, W, H);
-
-  // === POLÍGONOS ===
-  const {
-    polygonMode,
-    setPolygonMode,
-    polygons,
-    activePolygon,
-    fillColor,
-    setFillColor,
-    fillOpacity,
-    setFillOpacity,
-    addPolygonPoint,
-    finalizePolygon,
-    clearPolygons,
-  } = usePolygonManager();
+  const [pointMode, setPointMode] = useState(false);
+  const [ellipseMode, setEllipseMode] = useState(false);
+  const [ellipsePoints, setEllipsePoints] = useState<Pt[]>([]);
+  const [previewEllipse, setPreviewEllipse] = useState<{
+    center: Pt;
+    rx: number;
+    ry: number;
+  } | null>(null);
 
   // === PATHS (LINHAS) ===
   const {
     paths,
     setPaths,
+    circles,
+    ellipses,
+    points,
+    addPath,
+    addCircle,
+    addEllipse,
+    addPoint,
     activePath,
     setActivePath,
     color,
@@ -55,11 +56,64 @@ export default function Isometric() {
     undoLast,
     clear,
     getNextLabel,
+    registerPolygon,
   } = usePathsManager();
+  const {
+    polygonMode,
+    setPolygons,
+    setPolygonMode,
+    polygons,
+    activePolygon,
+    fillColor,
+    setFillColor,
+    fillOpacity,
+    setFillOpacity,
+    addPolygonPoint,
+    finalizePolygon,
+  } = usePolygonManager(registerPolygon);
 
-  // === MODO LINHA E POLÍGONO ===
+  // === FUNÇÃO AUXILIAR: ativa apenas um modo por vez ===
+  const activateMode = (
+    mode: "line" | "polygon" | "circle" | "point" | "ellipse" | "none"
+  ) => {
+    setLineMode(false);
+    setPolygonMode(false);
+    setCircleMode(false);
+    setPointMode(false);
+    setEllipseMode(false);
+
+    switch (mode) {
+      case "line":
+        setLineMode(true);
+        break;
+      case "polygon":
+        setPolygonMode(true);
+        break;
+      case "circle":
+        setCircleMode(true);
+        break;
+      case "point":
+        setPointMode(true);
+        break;
+      case "ellipse":
+        setEllipseMode(true);
+        break;
+      case "none":
+        // nenhum ativo
+        break;
+    }
+  };
+  // === MODO DE FERRAMENTA ===
   const [lineMode, setLineMode] = useState(true);
   const [polygonInProgress, setPolygonInProgress] = useState(false);
+  const [circleMode, setCircleMode] = useState(false);
+
+  // === CÍRCULO ATIVO ===
+  const [circlePoints, setCirclePoints] = useState<Pt[]>([]);
+  const [previewCircle, setPreviewCircle] = useState<{
+    center: Pt;
+    radius: number;
+  } | null>(null);
 
   // === EXTENSÃO ===
   const {
@@ -76,31 +130,46 @@ export default function Isometric() {
 
   // === EXPORTAÇÃO ===
   const exportJSON = () => {
-    const data = JSON.stringify(paths, null, 2);
+    const data = JSON.stringify({ paths, circles, polygons }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "isometric_paths.json";
+    a.download = "isometric_design.json";
     a.click();
   };
 
   const exportSVG = () => {
     const pathElements = paths
       .map((p) => {
-        const d = p.points.map((pt: { x: any; y: any }) => `${pt.x},${pt.y}`).join(" ");
+        const d = p.points
+          .map((pt: { x: any; y: any }) => `${pt.x},${pt.y}`)
+          .join(" ");
         const dash = p.dashed ? `stroke-dasharray="6 6"` : "";
         return `<polyline points="${d}" fill="none" stroke="${p.color}" stroke-width="${p.strokeWidth}" ${dash}/>`;
       })
       .join("\n");
+
+    const circleElements = circles
+      .map(
+        (c) =>
+          `<circle cx="${c.center.x}" cy="${c.center.y}" r="${
+            c.radius
+          }" stroke="${c.color}" stroke-width="${c.strokeWidth}" fill="none" ${
+            c.dashed ? `stroke-dasharray="6 6"` : ""
+          } />`
+      )
+      .join("\n");
+
     const svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
 ${pathElements}
+${circleElements}
 </svg>`;
     const blob = new Blob([svgData], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "isometric_paths.svg";
+    a.download = "isometric_design.svg";
     a.click();
   };
 
@@ -113,7 +182,7 @@ ${pathElements}
     toggleDashed: () => setDashed((d) => !d),
   });
 
-  // === FUNÇÕES AUXILIARES ===
+  // === CONVERSÃO DE COORDENADAS ===
   const toSvgCoords = (e: React.MouseEvent<SVGSVGElement>): Pt => {
     const svg = svgRef.current!;
     const rect = svg.getBoundingClientRect();
@@ -135,32 +204,119 @@ ${pathElements}
     });
     return closest;
   };
+  // 🔍 Retorna ponto existente se o clique for próximo o suficiente
+  const getClosestPoint = (p: Pt, tolerance = 12): any | null => {
+    if (!points || points.length === 0) return null;
+    let closest: any | null = null;
+    let minDist = Infinity;
+    points.forEach((pt) => {
+      const d = Math.hypot(pt.x - p.x, pt.y - p.y);
+      if (d < minDist && d <= tolerance) {
+        closest = pt;
+        minDist = d;
+      }
+    });
+    return closest;
+  };
+  // 🔍 Busca por ponto válido (ponto existente, extremidade de linha ou interseção)
+const getNearestSnapPoint = (p: Pt, tolerance = 12): Pt | null => {
+  let candidates: Pt[] = [];
 
-  // === CLICK ===
+  // 1️⃣ Adiciona pontos já criados manualmente
+  if (points && points.length > 0) {
+    candidates.push(...points);
+  }
+
+  // 2️⃣ Adiciona extremidades de linhas (paths existentes)
+  paths.forEach((path) => {
+    if (path.points.length > 0) {
+      const first = path.points[0];
+      const last = path.points[path.points.length - 1];
+      candidates.push(first, last);
+    }
+  });
+
+  // 3️⃣ Adiciona interseções da grade (opcional)
+  candidates.push(...intersections);
+
+  // 4️⃣ Encontra o mais próximo do clique dentro do raio de tolerância
+  let nearest: Pt | null = null;
+  let minDist = Infinity;
+
+  for (const c of candidates) {
+    const d = Math.hypot(c.x - p.x, c.y - p.y);
+    if (d < minDist && d <= tolerance) {
+      nearest = c;
+      minDist = d;
+    }
+  }
+
+  return nearest;
+};
+
+  // === CLICK PRINCIPAL ===
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const raw = toSvgCoords(e);
 
-    // 🔷 MODO POLÍGONO
+if (extendMode) {
+  handleExtendClick(raw);
+  return;
+}
+
+// 🧲 Busca ponto mais próximo (ponto, extremidade ou interseção)
+const nearest = getNearestSnapPoint(raw);
+if (!nearest) return;
+
+
+    // 🔵 CÍRCULO
+    if (circleMode) {
+      if (circlePoints.length === 0) {
+        setCirclePoints([nearest]);
+      } else if (circlePoints.length === 1) {
+        const center = circlePoints[0];
+        const dx = nearest.x - center.x;
+        const dy = nearest.y - center.y;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        addCircle({ center, radius, color, strokeWidth, dashed });
+        setCirclePoints([]);
+        setPreviewCircle(null);
+      }
+      return;
+    }
+
+    // 🔷 POLÍGONO
     if (polygonMode) {
-      const nearest = getClosestIntersection(raw);
-      if (!nearest) return;
       setPolygonInProgress(true);
       addPolygonPoint(nearest);
       return;
     }
-
-    // 🔶 MODO EXTENSÃO
-    if (extendMode) {
-      handleExtendClick(raw);
+    // 🟢 PONTO
+    if (pointMode) {
+      const label = getNextLabel(pointCount);
+      setPointCount((n) => n + 1);
+      addPoint({ ...nearest, label, color });
       return;
     }
 
-    // 🔹 MODO LINHA NORMAL
-    const nearest = getClosestIntersection(raw);
-    if (!nearest) return;
-
+    // 🟣 ELIPSE
+    if (ellipseMode) {
+      const nearest = getClosestIntersection(raw);
+      if (!nearest) return;
+      if (ellipsePoints.length === 0) {
+        setEllipsePoints([nearest]);
+      } else if (ellipsePoints.length === 1) {
+        const center = ellipsePoints[0];
+        const rx = Math.abs(nearest.x - center.x);
+        const ry = Math.abs(nearest.y - center.y);
+        addEllipse({ center, rx, ry, color, strokeWidth, dashed });
+        setEllipsePoints([]);
+        setPreviewEllipse(null);
+      }
+      return;
+    }
+    // 🔹 LINHA NORMAL
     const label = getNextLabel(pointCount);
-    setPointCount((prev) => prev + 1);
+    setPointCount((p) => p + 1);
     const labeledPoint = { ...nearest, label };
 
     setActivePath((prev: any) => {
@@ -176,12 +332,33 @@ ${pathElements}
       } else {
         const updated = { ...prev, points: [...prev.points, labeledPoint] };
         if (updated.points.length > 1) {
-          setPaths((prevPaths) => [...prevPaths, updated]);
+          addPath(updated); // ✅ registra no histórico
           return null;
         }
+
         return updated;
       }
     });
+  };
+
+  // === MOVIMENTO DO MOUSE ===
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const raw = toSvgCoords(e);
+    handleHover(raw);
+    if (ellipseMode && ellipsePoints.length === 1) {
+      const center = ellipsePoints[0];
+      const rx = Math.abs(raw.x - center.x);
+      const ry = Math.abs(raw.y - center.y);
+      setPreviewEllipse({ center, rx, ry });
+    }
+    // Preview do círculo enquanto desenha
+    if (circleMode && circlePoints.length === 1) {
+      const center = circlePoints[0];
+      const dx = raw.x - center.x;
+      const dy = raw.y - center.y;
+      const radius = Math.sqrt(dx * dx + dy * dy);
+      setPreviewCircle({ center, radius });
+    }
   };
 
   // === FINALIZAR POLÍGONO ===
@@ -201,9 +378,8 @@ ${pathElements}
         setStrokeWidth={setStrokeWidth}
         dashed={dashed}
         setDashed={setDashed}
-        onFinalize={finalizePath}
-        onUndo={undoLast}
-        onClear={clear}
+        onUndo={() => undoLast({ polygons, setPolygons })}
+        onClear={() => clear({ setPolygons })}
         onExportJSON={exportJSON}
         onExportSVG={exportSVG}
         polygonMode={polygonMode}
@@ -216,24 +392,24 @@ ${pathElements}
         onFinalizePolygon={handleFinalizePolygon}
         lineMode={lineMode}
         setLineMode={setLineMode}
+        circleMode={circleMode}
+        setCircleMode={setCircleMode}
+        extendMode={extendMode}
+        setExtendMode={setExtendMode}
+        setPointMode={setPointMode}
+        pointMode={pointMode}
+        setEllipseMode={setEllipseMode}
+        ellipseMode={ellipseMode}
       />
 
-      {/* === BOTÃO DE EXTENSÃO === */}
-      <button
-        onClick={() => setExtendMode((p) => !p)}
-        className={`mt-2 px-4 py-2 rounded ${
-          extendMode ? "bg-amber-600" : "bg-gray-700"
-        } text-white`}
-      >
-        {extendMode ? "Modo Extensão Ativo" : "Ativar Modo Extensão"}
-      </button>
-
+      {/* === DIALOGO DE AJUDA === */}
       {extendMode && (
-        <div className="fixed bottom-6 right-6 bg-amber-700 text-white px-4 py-2 rounded-lg shadow-lg font-mono text-sm">
-          {phaseMessage}
+        <div className="fixed bottom-6 right-6 bg-amber-700 text-white px-4 py-2 rounded-lg shadow-lg font-mono text-sm z-50">
+          {phaseMessage || "Clique sobre uma linha para iniciar a extensão."}
         </div>
       )}
 
+      {/* === SVG === */}
       {/* === SVG === */}
       <svg
         ref={svgRef}
@@ -241,7 +417,7 @@ ${pathElements}
         height={H}
         viewBox={`0 0 ${W} ${H}`}
         onClick={handleClick}
-        onMouseMove={(e) => handleHover(toSvgCoords(e))}
+        onMouseMove={handleMouseMove}
         className="cursor-crosshair select-none bg-neutral-900"
       >
         {/* === GRID === */}
@@ -259,8 +435,8 @@ ${pathElements}
           />
         ))}
 
-        {/* === POLÍGONO EM CRIAÇÃO === */}
-        {activePolygon && activePolygon.points.length > 1 && (
+        {/* === POLÍGONO EM CONSTRUÇÃO === */}
+        {polygonMode && activePolygon && activePolygon.points.length > 1 && (
           <polygon
             points={activePolygon.points.map((p) => `${p.x},${p.y}`).join(" ")}
             fill={fillColor}
@@ -270,14 +446,131 @@ ${pathElements}
             strokeDasharray="4 2"
           />
         )}
+        {/* === PONTOS === */}
+        {points.map((p) => (
+          <g key={p.id}>
+            <circle cx={p.x} cy={p.y} r={5} fill={p.color} />
+            <text
+              x={p.x + 10}
+              y={p.y - 10}
+              fill={p.color}
+              fontSize="12"
+              fontFamily="monospace"
+            >
+              {p.label} ({Math.round(p.x)}, {Math.round(p.y)})
+            </text>
+          </g>
+        ))}
 
-        {/* === PATHS EXISTENTES === */}
-        <IsoPaths paths={paths} hoveredId={hoveredId} selectedId={selectedId} />
+        {/* === ELIPSES === */}
+        {ellipses.map((e, i) => (
+          <g key={i}>
+            <ellipse
+              cx={e.center.x}
+              cy={e.center.y}
+              rx={e.rx}
+              ry={e.ry}
+              stroke={e.color}
+              strokeWidth={e.strokeWidth}
+              strokeDasharray={e.dashed ? "6,6" : ""}
+              fill="none"
+            />
+            <text
+              x={e.center.x + e.rx + 10}
+              y={e.center.y}
+              fill={e.color}
+              fontSize="12"
+              fontFamily="monospace"
+            >
+              Elipse ({Math.round(e.center.x)}, {Math.round(e.center.y)})
+            </text>
+          </g>
+        ))}
 
-        {/* === PATH ATIVO === */}
+        {/* === ELIPSE EM PRÉVIA === */}
+        {previewEllipse && (
+          <ellipse
+            cx={previewEllipse.center.x}
+            cy={previewEllipse.center.y}
+            rx={previewEllipse.rx}
+            ry={previewEllipse.ry}
+            stroke="yellow"
+            strokeWidth={2}
+            strokeDasharray="4 2"
+            fill="none"
+          />
+        )}
+
+        {/* === PATHS === */}
+        <IsoPaths
+          paths={paths.map((p) => {
+            // 🔸 MODO EXTENSÃO VISUAL
+            if (extendMode) {
+              // Linha sob o mouse = leve destaque (branco / ciano)
+              if (p.id === hoveredId && p.id !== selectedId) {
+                return {
+                  ...p,
+                  color: "#00FFFF", // ciano leve para highlight
+                  strokeWidth: p.strokeWidth * 1.4,
+                };
+              }
+
+              // Linha selecionada = destaque fixo (amarelo)
+              if (p.id === selectedId) {
+                return {
+                  ...p,
+                  color: "#d97a26", // amarelo ouro
+                  strokeWidth: p.strokeWidth * 1.8,
+                };
+              }
+            }
+
+            // Linhas normais (fora do modo extensão)
+            return p;
+          })}
+        />
+
+        {/* Path ativo (sendo criado) */}
         {activePath && <IsoPaths paths={[activePath]} />}
 
-        {/* === PRÉVIA DA EXTENSÃO === */}
+        {/* === CÍRCULOS === */}
+        {circles.map((c, i) => (
+          <g key={i}>
+            <circle
+              cx={c.center.x}
+              cy={c.center.y}
+              r={c.radius}
+              stroke={c.color}
+              strokeWidth={c.strokeWidth}
+              strokeDasharray={c.dashed ? "5,5" : ""}
+              fill="none"
+            />
+            <text
+              x={c.center.x + c.radius + 10}
+              y={c.center.y}
+              fill={c.color}
+              fontSize="12"
+              fontFamily="monospace"
+            >
+              Círculo ({Math.round(c.center.x)}, {Math.round(c.center.y)})
+            </text>
+          </g>
+        ))}
+
+        {/* === CÍRCULO EM PRÉVIA === */}
+        {previewCircle && (
+          <circle
+            cx={previewCircle.center.x}
+            cy={previewCircle.center.y}
+            r={previewCircle.radius}
+            stroke="yellow"
+            strokeWidth={2}
+            strokeDasharray="4 2"
+            fill="none"
+          />
+        )}
+
+        {/* === PRÉVIA DE EXTENSÃO === */}
         {previewLine && (
           <line
             x1={previewLine.A.x}
@@ -290,18 +583,7 @@ ${pathElements}
             opacity={0.8}
           />
         )}
-
-        {/* === PONTO INICIAL DA EXTENSÃO === */}
-        {extendStart && (
-          <circle
-            cx={extendStart.point.x}
-            cy={extendStart.point.y}
-            r={6}
-            fill="yellow"
-            stroke="white"
-            strokeWidth={1}
-          />
-        )}
+        
       </svg>
     </div>
   );

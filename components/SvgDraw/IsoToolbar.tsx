@@ -8,7 +8,10 @@ import {
   Download,
   FileJson,
   Check,
+  Circle as CircleIcon,
+  RailSymbol,
 } from "lucide-react";
+import { IconOvalVertical, IconPoint } from "@tabler/icons-react";
 
 export function IsoToolbar({
   colors,
@@ -18,13 +21,13 @@ export function IsoToolbar({
   setStrokeWidth,
   dashed,
   setDashed,
-  onFinalize,
+  // onFinalize,
   onUndo,
   onClear,
   onExportJSON,
   onExportSVG,
 
-  // 🔹 Novos props para o modo polígono e controle visual
+  // 🔹 Modos de desenho
   polygonMode,
   setPolygonMode,
   polygonInProgress,
@@ -35,17 +38,58 @@ export function IsoToolbar({
   onFinalizePolygon,
   lineMode,
   setLineMode,
+  circleMode,
+  setCircleMode,
+  extendMode,
+  setExtendMode,
+  setPointMode,
+  pointMode,
+  setEllipseMode,
+  ellipseMode,
 }: any) {
+  /** ✅ Função que ativa apenas um modo por vez */
+  const activateMode = (mode: string) => {
+    setLineMode(false);
+    setPolygonMode(false);
+    setCircleMode(false);
+    setExtendMode(false);
+    setPointMode(false);
+    setEllipseMode(false);
+
+    switch (mode) {
+      case "line":
+        setLineMode(true);
+        break;
+      case "polygon":
+        setPolygonMode(true);
+        break;
+      case "circle":
+        setCircleMode(true);
+        break;
+      case "extend":
+        setExtendMode(true);
+        break;
+      case "point":
+        setPointMode(true);
+        break;
+      case "ellipse":
+        setEllipseMode(true);
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <div className="mb-4 flex flex-wrap items-center justify-center space-x-4">
       {/* === CONTROLES PRINCIPAIS === */}
-      <button
+      {/* <button
         onClick={onFinalize}
         className="flex items-center space-x-2 px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700"
       >
         <Check size={16} />
-        <span>Novo Path</span>
-      </button>
+        <span>OK</span>
+      </button> */}
 
       <button
         onClick={onUndo}
@@ -79,7 +123,7 @@ export function IsoToolbar({
         <span>SVG</span>
       </button>
 
-      {/* === CORES DAS LINHAS === */}
+      {/* === CORES === */}
       <div className="flex items-center space-x-2 ml-6">
         {colors.map((c: string) => (
           <button
@@ -120,14 +164,11 @@ export function IsoToolbar({
         </button>
       </div>
 
-      {/* === MODO LINHA / POLÍGONO === */}
+      {/* === MODOS === */}
       <div className="ml-6 flex items-center space-x-2">
-        {/* Botão modo linha */}
+        {/* Linha */}
         <button
-          onClick={() => {
-            setLineMode(true);
-            setPolygonMode(false);
-          }}
+          onClick={() => activateMode("line")}
           className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
             lineMode ? "bg-blue-600 text-white" : "bg-gray-600 text-gray-300"
           } hover:bg-blue-500`}
@@ -136,18 +177,59 @@ export function IsoToolbar({
           <span>Linha</span>
         </button>
 
-        {/* Botão modo polígono */}
+        {/* Ponto */}
         <button
-          onClick={() => {
-            setPolygonMode(true);
-            setLineMode(false);
-          }}
+          onClick={() => activateMode("point")}
+          className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
+            pointMode ? "bg-cyan-600 text-white" : "bg-gray-600 text-gray-300"
+          } hover:bg-cyan-500`}
+        >
+          <IconPoint size={16} />
+          <span>Ponto</span>
+        </button>
+
+        {/* Polígono */}
+        <button
+          onClick={() => activateMode("polygon")}
           className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
             polygonMode ? "bg-green-700 text-white" : "bg-gray-600 text-gray-300"
           } hover:bg-green-600`}
         >
           <Pentagon size={16} />
           <span>Polígono</span>
+        </button>
+
+        {/* Círculo */}
+        <button
+          onClick={() => activateMode("circle")}
+          className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
+            circleMode ? "bg-purple-700 text-white" : "bg-gray-600 text-gray-300"
+          } hover:bg-purple-600`}
+        >
+          <CircleIcon size={16} />
+          <span>Círculo</span>
+        </button>
+
+        {/* Elipse */}
+        <button
+          onClick={() => activateMode("ellipse")}
+          className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
+            ellipseMode ? "bg-pink-700 text-white" : "bg-gray-600 text-gray-300"
+          } hover:bg-pink-600`}
+        >
+          <IconOvalVertical size={16} />
+          <span>Elipse</span>
+        </button>
+
+        {/* Extensão */}
+        <button
+          onClick={() => activateMode("extend")}
+          className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
+            extendMode ? "bg-amber-600 text-white" : "bg-gray-600 text-gray-300"
+          } hover:bg-amber-500`}
+        >
+          <RailSymbol size={16} />
+          <span>Extensão</span>
         </button>
 
         {/* Botão finalizar polígono */}
@@ -161,9 +243,7 @@ export function IsoToolbar({
             }`}
           >
             <Check size={16} />
-            <span>
-              {polygonInProgress ? "Finalizar" : "Concluído"}
-            </span>
+            <span>{polygonInProgress ? "Finalizar" : "Concluído"}</span>
           </button>
         )}
       </div>

@@ -3,8 +3,6 @@ import { useState } from "react";
 export function usePathsManager() {
   const [paths, setPaths] = useState<any[]>([]);
   const [circles, setCircles] = useState<any[]>([]);
-  const [ellipses, setEllipses] = useState<any[]>([]);
-  const [points, setPoints] = useState<any[]>([]);
   const [activePath, setActivePath] = useState<any | null>(null);
   const [history, setHistory] = useState<any[]>([]);
 
@@ -15,6 +13,7 @@ export function usePathsManager() {
 
   const colors = ["cyan", "orange", "magenta", "lime"];
 
+  /** Gera rótulos automáticos (A, B, C...) */
   function getNextLabel(index: number): string {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     if (index < 26) return alphabet[index];
@@ -23,47 +22,28 @@ export function usePathsManager() {
     return alphabet[first] + alphabet[second];
   }
 
-  // === PATH ===
-  function addPath(newPath: any) {
-    setPaths((prev) => [...prev, newPath]);
-    setHistory((prev) => [...prev, { type: "path" }]);
-  }
-
+  /** Finaliza um path ativo */
   function finalizePath() {
     if (activePath && activePath.points.length > 1) {
       const newPath = { ...activePath, id: crypto.randomUUID() };
-      addPath(newPath);
+      setPaths((prev) => [...prev, newPath]);
+      setHistory((prev) => [...prev, { type: "path" }]);
       setActivePath(null);
     }
   }
 
-  // === CÍRCULO ===
+  /** Adiciona um círculo */
   function addCircle(c: any) {
     const newCircle = { ...c, id: crypto.randomUUID() };
     setCircles((prev) => [...prev, newCircle]);
     setHistory((prev) => [...prev, { type: "circle" }]);
   }
 
-  // === ELIPSE ===
-  function addEllipse(e: any) {
-    const newEllipse = { ...e, id: crypto.randomUUID() };
-    setEllipses((prev) => [...prev, newEllipse]);
-    setHistory((prev) => [...prev, { type: "ellipse" }]);
-  }
-
-  // === PONTO ===
-  function addPoint(p: any) {
-    const newPoint = { ...p, id: crypto.randomUUID() };
-    setPoints((prev) => [...prev, newPoint]);
-    setHistory((prev) => [...prev, { type: "point" }]);
-  }
-
-  // === POLÍGONO ===
-  function registerPolygon() {
-    setHistory((prev) => [...prev, { type: "polygon" }]);
-  }
-
-  // === DESFAZER ===
+  /**
+   * 🔁 Desfaz última ação
+   * Pode receber um `external` com os setters e arrays dos polígonos
+   * vindos do usePolygonManager
+   */
   function undoLast(external?: {
     polygons?: any[];
     setPolygons?: React.Dispatch<React.SetStateAction<any[]>>;
@@ -73,52 +53,37 @@ export function usePathsManager() {
       const last = prev[prev.length - 1];
       const updated = prev.slice(0, -1);
 
-      switch (last.type) {
-        case "path":
-          setPaths((p) => p.slice(0, -1));
-          break;
-        case "circle":
-          setCircles((c) => c.slice(0, -1));
-          break;
-        case "ellipse":
-          setEllipses((e) => e.slice(0, -1));
-          break;
-        case "point":
-          setPoints((p) => p.slice(0, -1));
-          break;
-        case "polygon":
-          if (external?.setPolygons) external.setPolygons((p) => p.slice(0, -1));
-          break;
+      if (last.type === "path") setPaths((p) => p.slice(0, -1));
+      if (last.type === "circle") setCircles((c) => c.slice(0, -1));
+
+      // ✅ Integrado com usePolygonManager
+      if (last.type === "polygon" && external?.setPolygons) {
+        external.setPolygons((p) => p.slice(0, -1));
       }
 
       return updated;
     });
   }
 
-  // === LIMPAR ===
+  /** Limpa tudo */
   function clear(external?: { setPolygons?: React.Dispatch<React.SetStateAction<any[]>> }) {
     setPaths([]);
     setCircles([]);
-    setEllipses([]);
-    setPoints([]);
     setActivePath(null);
     setHistory([]);
     setPointCount(0);
+
+    // limpa polígonos externos
     if (external?.setPolygons) external.setPolygons([]);
   }
 
   return {
     paths,
     setPaths,
-    circles,
-    ellipses,
-    points,
-    addPath,
-    addCircle,
-    addEllipse,
-    addPoint,
     activePath,
     setActivePath,
+    circles,
+    addCircle,
     color,
     setColor,
     strokeWidth,
@@ -132,6 +97,5 @@ export function usePathsManager() {
     undoLast,
     clear,
     getNextLabel,
-    registerPolygon,
   };
 }
