@@ -110,6 +110,9 @@ export function usePathsManager() {
   return {
     paths,
     setPaths,
+    setCircles,
+    setPoints,
+    setEllipses,
     circles,
     ellipses,
     points,

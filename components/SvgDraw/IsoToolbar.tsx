@@ -10,6 +10,7 @@ import {
   Check,
   Circle as CircleIcon,
   RailSymbol,
+  MousePointer,
 } from "lucide-react";
 import { IconOvalVertical, IconPoint, IconTargetArrow } from "@tabler/icons-react";
 
@@ -26,7 +27,7 @@ export function IsoToolbar({
   onExportJSON,
   onExportSVG,
 
-  // 🔹 Modos de desenho
+  // === Modos de desenho
   polygonMode,
   setPolygonMode,
   polygonInProgress,
@@ -46,11 +47,19 @@ export function IsoToolbar({
   setEllipseMode,
   ellipseMode,
 
-  // 🔹 Novo: modo interseção
+  // === Interseção
   intersectionMode,
   setIntersectionMode,
   selectedElements,
   onFinalizeIntersections,
+
+  // === Seleção
+  selectionMode,
+  setSelectionMode,
+  selectedIds,
+  onDeleteSelected,
+  allowedTypes,
+  setAllowedTypes,
 }: any) {
   /** ✅ Ativa apenas um modo por vez */
   const activateMode = (mode: string) => {
@@ -61,6 +70,7 @@ export function IsoToolbar({
     setPointMode(false);
     setEllipseMode(false);
     setIntersectionMode(false);
+    setSelectionMode(false);
 
     switch (mode) {
       case "line":
@@ -83,6 +93,9 @@ export function IsoToolbar({
         break;
       case "intersection":
         setIntersectionMode(true);
+        break;
+      case "selection":
+        setSelectionMode(true);
         break;
       default:
         break;
@@ -167,6 +180,17 @@ export function IsoToolbar({
 
       {/* === MODOS === */}
       <div className="ml-6 flex items-center space-x-2">
+        {/* Seleção */}
+        <button
+          onClick={() => activateMode("selection")}
+          className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
+            selectionMode ? "bg-red-700 text-white" : "bg-gray-600 text-gray-300"
+          } hover:bg-red-600`}
+        >
+          <MousePointer size={16} />
+          <span>Selecionar</span>
+        </button>
+
         {/* Linha */}
         <button
           onClick={() => activateMode("line")}
@@ -260,17 +284,64 @@ export function IsoToolbar({
         )}
 
         {/* Botão Finalizar Interseções */}
-{intersectionMode && selectedElements.length > 1 && (
+        {intersectionMode && selectedElements.length > 1 && (
+          <button
+            onClick={onFinalizeIntersections}
+            className="flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium bg-emerald-700 text-white hover:bg-emerald-600"
+          >
+            <Check size={16} />
+            <span>Finalizar</span>
+          </button>
+        )}
+
+        {/* Excluir selecionados */}
+        {selectionMode && selectedIds.length > 0 && (
+          <button
+            onClick={onDeleteSelected}
+            className="flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium bg-red-700 text-white hover:bg-red-600"
+          >
+            <Trash2 size={16} />
+            <span>Excluir Selecionados</span>
+          </button>
+        )}
+      </div>
+{/* Cancelar seleção */}
+{selectionMode && selectedIds.length > 0 && (
   <button
-    onClick={onFinalizeIntersections}
-    className="flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium bg-emerald-700 text-white hover:bg-emerald-600"
+    onClick={() => setSelectionMode(false)}
+    className="flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium bg-gray-600 text-white hover:bg-gray-500"
   >
-    <Check size={16} />
-    <span>Finalizar</span>
+    <span>Cancelar Seleção</span>
   </button>
 )}
-        
-      </div>
+
+      {/* === FILTROS DE SELEÇÃO === */}
+      {selectionMode && (
+        <div className="ml-6 flex flex-wrap gap-3 text-white text-sm bg-gray-800 px-3 py-2 rounded-md border border-gray-700">
+          <span className="font-semibold text-gray-300">Tipos selecionáveis:</span>
+
+          {(Object.entries(allowedTypes) as [string, boolean][]).map(([key, value]) => {
+            const label = typeof key === "string" ? key : String(key);
+            return (
+              <label key={label} className="flex items-center space-x-1">
+                <input
+                  type="checkbox"
+                  checked={Boolean(value)}
+                  onChange={(e) =>
+                    setAllowedTypes((prev: Record<string, boolean>) => ({
+                      ...prev,
+                      [label]: e.target.checked,
+                    }))
+                  }
+                />
+                <span>
+                  {label.charAt(0).toUpperCase() + label.slice(1)}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
 
       {/* === COR DE PREENCHIMENTO === */}
       <div className="ml-4 flex items-center space-x-2 text-white">

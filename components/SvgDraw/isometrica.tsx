@@ -12,6 +12,8 @@ import { IsoToolbar } from "@/components/SvgDraw/IsoToolbar";
 import { useLineExtension } from "@/hooks/useLineExtension";
 import { usePolygonManager } from "@/hooks/usePolygonManager";
 import { useIntersections } from "@/hooks/useIntersections";
+import { useSelectionManager } from "@/hooks/useSelectionManager";
+
 import type { Pt } from "@/types";
 
 export default function Isometric() {
@@ -35,6 +37,9 @@ export default function Isometric() {
   const {
     paths,
     setPaths,
+     setCircles,
+    setPoints,
+    setEllipses,
     circles,
     ellipses,
     points,
@@ -145,6 +150,20 @@ const {
   getNextLabel,
   setPointCount
 );
+const {
+  selectionMode,
+  setSelectionMode,
+  selectedIds,
+  toggleSelection,
+  detectClickedElement: detectSelectionClick,
+  deleteSelected,
+  selectionRect,
+  startSelectionBox,
+  updateSelectionBox,
+  finalizeSelectionBox,
+  allowedTypes,
+  setAllowedTypes,
+} = useSelectionManager(paths, setPaths, circles, setCircles, ellipses, setEllipses, polygons, setPolygons, points, setPoints);
 
   // === EXPORTAÇÃO ===
   const exportJSON = () => {
@@ -222,7 +241,7 @@ ${circleElements}
     });
     return closest;
   };
-  // 🔍 Retorna ponto existente se o clique for próximo o suficiente
+  // Retorna ponto existente se o clique for próximo o suficiente
   const getClosestPoint = (p: Pt, tolerance = 12): any | null => {
     if (!points || points.length === 0) return null;
     let closest: any | null = null;
@@ -236,16 +255,16 @@ ${circleElements}
     });
     return closest;
   };
-  // 🔍 Busca por ponto válido (ponto existente, extremidade de linha ou interseção)
+  // Busca por ponto válido (ponto existente, extremidade de linha ou interseção)
 const getNearestSnapPoint = (p: Pt, tolerance = 12): Pt | null => {
   let candidates: Pt[] = [];
 
-  // 1️⃣ Adiciona pontos já criados manualmente
+  // Adiciona pontos já criados manualmente
   if (points && points.length > 0) {
     candidates.push(...points);
   }
 
-  // 2️⃣ Adiciona extremidades de linhas (paths existentes)
+  // Adiciona extremidades de linhas (paths existentes)
   paths.forEach((path) => {
     if (path.points.length > 0) {
       const first = path.points[0];
@@ -254,10 +273,10 @@ const getNearestSnapPoint = (p: Pt, tolerance = 12): Pt | null => {
     }
   });
 
-  // 3️⃣ Adiciona interseções da grade (opcional)
+  // Adiciona interseções da grade (opcional)
   candidates.push(...intersections);
 
-  // 4️⃣ Encontra o mais próximo do clique dentro do raio de tolerância
+  // Encontra o mais próximo do clique dentro do raio de tolerância
   let nearest: Pt | null = null;
   let minDist = Infinity;
 
@@ -276,18 +295,28 @@ const getNearestSnapPoint = (p: Pt, tolerance = 12): Pt | null => {
   const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     const raw = toSvgCoords(e);
 
+// 🟡 MODO SELEÇÃO
+if (selectionMode) {
+  const clickedId = detectSelectionClick(raw);
+  if (!clickedId) return;
+  toggleSelection(clickedId);
+  return;
+}
+
+// 🟠 MODO EXTENSÃO
 if (extendMode) {
   handleExtendClick(raw);
   return;
 }
-// 🧭 MODO INTERSEÇÃO — Seleciona elementos
+
+// 🔵 MODO INTERSEÇÃO
 if (intersectionMode) {
   const clickedId = detectClickedElement(raw);
   if (!clickedId) return;
   toggleElementSelection(clickedId);
   return;
 }
-// 🧲 Busca ponto mais próximo (ponto, extremidade ou interseção)
+
 const nearest = getNearestSnapPoint(raw);
 if (!nearest) return;
 
@@ -384,6 +413,23 @@ if (!nearest) return;
       setPreviewCircle({ center, radius });
     }
   };
+// === SELEÇÃO (retângulo) ===
+const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+  if (!selectionMode) return;
+  const pt = toSvgCoords(e);
+  startSelectionBox(pt);
+};
+
+const handleMouseMoveSelection = (e: React.MouseEvent<SVGSVGElement>) => {
+  if (!selectionMode) return;
+  const pt = toSvgCoords(e);
+  updateSelectionBox(pt);
+};
+
+const handleMouseUp = () => {
+  if (!selectionMode) return;
+  finalizeSelectionBox();
+};
 
   // === FINALIZAR POLÍGONO ===
   const handleFinalizePolygon = () => {
@@ -395,41 +441,51 @@ if (!nearest) return;
     <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-900">
       {/* === TOOLBAR === */}
       <IsoToolbar
-        colors={colors}
-        selectedColor={color}
-        setSelectedColor={setColor}
-        strokeWidth={strokeWidth}
-        setStrokeWidth={setStrokeWidth}
-        dashed={dashed}
-        setDashed={setDashed}
-        onUndo={() => undoLast({ polygons, setPolygons })}
-        onClear={() => clear({ setPolygons })}
-        onExportJSON={exportJSON}
-        onExportSVG={exportSVG}
-        polygonMode={polygonMode}
-        setPolygonMode={setPolygonMode}
-        polygonInProgress={polygonInProgress}
-        fillColor={fillColor}
-        setFillColor={setFillColor}
-        fillOpacity={fillOpacity}
-        setFillOpacity={setFillOpacity}
-        onFinalizePolygon={handleFinalizePolygon}
-        lineMode={lineMode}
-        setLineMode={setLineMode}
-        circleMode={circleMode}
-        setCircleMode={setCircleMode}
-        extendMode={extendMode}
-        setExtendMode={setExtendMode}
-        setPointMode={setPointMode}
-        pointMode={pointMode}
-        setEllipseMode={setEllipseMode}
-        ellipseMode={ellipseMode}
-      intersectionMode={intersectionMode}
+  colors={colors}
+  selectedColor={color}
+  setSelectedColor={setColor}
+  strokeWidth={strokeWidth}
+  setStrokeWidth={setStrokeWidth}
+  dashed={dashed}
+  setDashed={setDashed}
+  onUndo={() => undoLast({ polygons, setPolygons })}
+  onClear={() => clear({ setPolygons })}
+  onExportJSON={exportJSON}
+  onExportSVG={exportSVG}
+  polygonMode={polygonMode}
+  setPolygonMode={setPolygonMode}
+  polygonInProgress={polygonInProgress}
+  fillColor={fillColor}
+  setFillColor={setFillColor}
+  fillOpacity={fillOpacity}
+  setFillOpacity={setFillOpacity}
+  onFinalizePolygon={handleFinalizePolygon}
+  lineMode={lineMode}
+  setLineMode={setLineMode}
+  circleMode={circleMode}
+  setCircleMode={setCircleMode}
+  extendMode={extendMode}
+  setExtendMode={setExtendMode}
+  setPointMode={setPointMode}
+  pointMode={pointMode}
+  setEllipseMode={setEllipseMode}
+  ellipseMode={ellipseMode}
+
+  // 🔹 Interseção
+  intersectionMode={intersectionMode}
   setIntersectionMode={setIntersectionMode}
   selectedElements={selectedElements}
   onFinalizeIntersections={finalizeIntersections}
-  
-      />
+
+  // 🔹 Seleção
+  selectionMode={selectionMode}
+  setSelectionMode={setSelectionMode}
+  selectedIds={selectedIds}
+  onDeleteSelected={deleteSelected}
+  allowedTypes={allowedTypes}
+  setAllowedTypes={setAllowedTypes}
+/>
+
 
       {/* === DIALOGO DE AJUDA === */}
       {extendMode && (
@@ -441,14 +497,21 @@ if (!nearest) return;
       {/* === SVG === */}
       {/* === SVG === */}
       <svg
-        ref={svgRef}
-        width={W}
-        height={H}
-        viewBox={`0 0 ${W} ${H}`}
-        onClick={handleClick}
-        onMouseMove={handleMouseMove}
-        className="cursor-crosshair select-none bg-neutral-900"
-      >
+  ref={svgRef}
+  width={W}
+  height={H}
+  viewBox={`0 0 ${W} ${H}`}
+  onClick={handleClick}
+  onMouseMove={(e) => {
+    handleMouseMove(e);
+    handleMouseMoveSelection(e);
+  }}
+  onMouseDown={handleMouseDown}
+  onMouseUp={handleMouseUp}
+  className={`select-none bg-neutral-900 ${
+    selectionMode ? "cursor-crosshair" : "cursor-crosshair"
+  }`}
+>
         {/* === GRID === */}
         <IsoGrid grid={grid} />
 
@@ -476,20 +539,31 @@ if (!nearest) return;
           />
         )}
         {/* === PONTOS === */}
-        {points.map((p) => (
-          <g key={p.id}>
-            <circle cx={p.x} cy={p.y} r={5} fill={p.color} />
-            <text
-              x={p.x + 10}
-              y={p.y - 10}
-              fill={p.color}
-              fontSize="12"
-              fontFamily="monospace"
-            >
-              {p.label} ({Math.round(p.x)}, {Math.round(p.y)})
-            </text>
-          </g>
-        ))}
+        {points.map((p) => {
+  const isSelected = selectionMode && selectedIds.includes(p.id);
+  return (
+    <g key={p.id}>
+      <circle
+        cx={p.x}
+        cy={p.y}
+        r={isSelected ? 7 : 5}
+        fill={isSelected ? "#00FF7F" : p.color}
+        stroke={isSelected ? "white" : "none"}
+        strokeWidth={isSelected ? 1.5 : 0}
+      />
+      <text
+        x={p.x + 10}
+        y={p.y - 10}
+        fill={isSelected ? "#00FF7F" : p.color}
+        fontSize="12"
+        fontFamily="monospace"
+      >
+        {p.label} ({Math.round(p.x)}, {Math.round(p.y)})
+      </text>
+    </g>
+  );
+})}
+
 
         {/* === ELIPSES === */}
         {ellipses.map((e, i) => (
@@ -615,11 +689,13 @@ if (!nearest) return;
         {/* === LINHAS === */}
 <IsoPaths
   paths={paths.map((p) => {
-    if (intersectionMode && selectedElements.includes(p.id)) {
+    const isIntersection = intersectionMode && selectedElements.includes(p.id);
+    const isSelected = selectionMode && selectedIds.includes(p.id);
+    if (isIntersection || isSelected) {
       return {
         ...p,
-        color: "#FFD700", // destaque amarelo
-        strokeWidth: p.strokeWidth * 1.6,
+        color: isIntersection ? "#FFD700" : "#00FF7F", // amarelo = intersecção, verde = seleção
+        strokeWidth: p.strokeWidth * 1.8,
       };
     }
     return p;
@@ -672,21 +748,21 @@ if (!nearest) return;
 ))}
 
 {/* === POLÍGONOS === */}
-{polygons.map((poly) => (
-  <polygon
-    key={poly.id}
-    points={poly.points.map((p) => `${p.x},${p.y}`).join(" ")}
-    fill="none"
-    stroke={
-      intersectionMode && selectedElements.includes(poly.id)
-        ? "#FFD700"
-        : poly.color
-    }
-    strokeWidth={
-      intersectionMode && selectedElements.includes(poly.id) ? 2 : 1
-    }
-  />
-))}
+{polygons.map((poly) => {
+  const isIntersection = intersectionMode && selectedElements.includes(poly.id);
+  const isSelected = selectionMode && selectedIds.includes(poly.id);
+  const highlightColor = isIntersection ? "#FFD700" : isSelected ? "#00FF7F" : poly.color;
+
+  return (
+    <polygon
+      key={poly.id}
+      points={poly.points.map((p) => `${p.x},${p.y}`).join(" ")}
+      fill="none"
+      stroke={highlightColor}
+      strokeWidth={isIntersection || isSelected ? 2 : 1}
+    />
+  );
+})}
 
 {/* === PONTOS DE INTERSEÇÃO (PRÉVIA) === */}
 {previewPoints.map((p, i) => (
@@ -701,7 +777,19 @@ if (!nearest) return;
     opacity={0.9}
   />
 ))}
-
+{/* === RETÂNGULO DE SELEÇÃO === */}
+{selectionMode && selectionRect && (
+  <rect
+    x={selectionRect.x}
+    y={selectionRect.y}
+    width={selectionRect.w}
+    height={selectionRect.h}
+    fill="rgba(255, 255, 255, 0.1)"
+    stroke="red"
+    strokeWidth={1.5}
+    strokeDasharray="4 2"
+  />
+)}
       </svg>
     </div>
   );
