@@ -1,3 +1,15 @@
+"use client";
+
+import {
+  Slash,
+  Pentagon,
+  Trash2,
+  Undo2,
+  Download,
+  FileJson,
+  Check,
+} from "lucide-react";
+
 export function IsoToolbar({
   colors,
   selectedColor,
@@ -15,32 +27,56 @@ export function IsoToolbar({
   // 🔹 Novos props para o modo polígono e controle visual
   polygonMode,
   setPolygonMode,
-  polygonInProgress, // 🔸 indica se há um polígono sendo desenhado
+  polygonInProgress,
   fillColor,
   setFillColor,
   fillOpacity,
   setFillOpacity,
   onFinalizePolygon,
   lineMode,
-  setLineMode, // 🔸 novo: controla modo linha
+  setLineMode,
 }: any) {
   return (
     <div className="mb-4 flex flex-wrap items-center justify-center space-x-4">
       {/* === CONTROLES PRINCIPAIS === */}
-      <button onClick={onFinalize} className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700">
-        Novo Path
+      <button
+        onClick={onFinalize}
+        className="flex items-center space-x-2 px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700"
+      >
+        <Check size={16} />
+        <span>Novo Path</span>
       </button>
-      <button onClick={onUndo} className="px-4 py-2 text-white bg-gray-600 rounded hover:bg-gray-700">
-        Desfazer
+
+      <button
+        onClick={onUndo}
+        className="flex items-center space-x-2 px-4 py-2 text-white bg-gray-600 rounded hover:bg-gray-700"
+      >
+        <Undo2 size={16} />
+        <span>Desfazer</span>
       </button>
-      <button onClick={onClear} className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700">
-        Limpar
+
+      <button
+        onClick={onClear}
+        className="flex items-center space-x-2 px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700"
+      >
+        <Trash2 size={16} />
+        <span>Limpar</span>
       </button>
-      <button onClick={onExportJSON} className="px-4 py-2 text-white bg-emerald-600 rounded hover:bg-emerald-700">
-        JSON
+
+      <button
+        onClick={onExportJSON}
+        className="flex items-center space-x-2 px-4 py-2 text-white bg-emerald-600 rounded hover:bg-emerald-700"
+      >
+        <FileJson size={16} />
+        <span>JSON</span>
       </button>
-      <button onClick={onExportSVG} className="px-4 py-2 text-white bg-yellow-600 rounded hover:bg-yellow-700">
-        SVG
+
+      <button
+        onClick={onExportSVG}
+        className="flex items-center space-x-2 px-4 py-2 text-white bg-yellow-600 rounded hover:bg-yellow-700"
+      >
+        <Download size={16} />
+        <span>SVG</span>
       </button>
 
       {/* === CORES DAS LINHAS === */}
@@ -92,11 +128,12 @@ export function IsoToolbar({
             setLineMode(true);
             setPolygonMode(false);
           }}
-          className={`px-3 py-1 rounded text-sm font-medium ${
+          className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
             lineMode ? "bg-blue-600 text-white" : "bg-gray-600 text-gray-300"
           } hover:bg-blue-500`}
         >
-          Modo Linha
+          <Slash size={16} />
+          <span>Linha</span>
         </button>
 
         {/* Botão modo polígono */}
@@ -105,24 +142,28 @@ export function IsoToolbar({
             setPolygonMode(true);
             setLineMode(false);
           }}
-          className={`px-3 py-1 rounded text-sm font-medium ${
+          className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
             polygonMode ? "bg-green-700 text-white" : "bg-gray-600 text-gray-300"
           } hover:bg-green-600`}
         >
-          Modo Polígono
+          <Pentagon size={16} />
+          <span>Polígono</span>
         </button>
 
         {/* Botão finalizar polígono */}
         {polygonMode && (
           <button
             onClick={onFinalizePolygon}
-            className={`px-3 py-1 rounded text-sm font-medium ${
+            className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium ${
               polygonInProgress
                 ? "bg-red-700 text-white hover:bg-red-600"
                 : "bg-emerald-700 text-white hover:bg-emerald-600"
             }`}
           >
-            {polygonInProgress ? "Finalizar Polígono" : "Polígono Concluído"}
+            <Check size={16} />
+            <span>
+              {polygonInProgress ? "Finalizar" : "Concluído"}
+            </span>
           </button>
         )}
       </div>
